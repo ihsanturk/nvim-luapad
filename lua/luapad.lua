@@ -1,7 +1,9 @@
 local Statusline = require 'luapad/statusline'
 local parse_error = require'luapad/tools'.parse_error
 local Config = require'luapad/config'
+local helper = require'luapad/helper'
 local api = vim.api
+local start_buf
 local preview_win
 
 local ns = vim.api.nvim_create_namespace('luapad_namespace')
@@ -92,6 +94,7 @@ local function tcall(fun)
     if result:find('LuapadTimeoutError') then
       Statusline:set_status('timeout')
     else
+      print(result)
       Statusline:set_status('error')
       local line, error_msg = parse_error(result)
       Statusline:set_msg(('%s: %s'):format((line or ''), (error_msg or '')))
@@ -108,7 +111,11 @@ local function tcall(fun)
 end
 
 local function luapad()
-  local context = { p = pad_print, print = pad_print }
+  local context = {
+    p = pad_print,
+    print = pad_print,
+    luapad = helper.new(start_buf)
+  }
   setmetatable(context, { __index = _G})
 
   count_limit = Config.count_limit
@@ -149,14 +156,20 @@ local function luapad()
   end
 end
 
+local function on_cursor_moved()
+  close_preview()
+  if Config.eval_on_move then vim.schedule(luapad) end
+end
+
 local function init_luapad()
+  start_buf = api.nvim_get_current_buf()
   api.nvim_command('botright vnew')
   api.nvim_buf_set_name(0, 'Luapad #' .. api.nvim_get_current_buf())
   api.nvim_buf_set_option(0, 'swapfile', false)
   api.nvim_buf_set_option(0, 'filetype', 'lua.luapad')
   api.nvim_buf_set_option(0, 'bufhidden', 'wipe')
   api.nvim_command('au CursorHold <buffer> lua require("luapad").preview()')
-  api.nvim_command('au CursorMoved <buffer> lua require("luapad").close_preview()')
+  api.nvim_command('au CursorMoved <buffer> lua require("luapad").on_cursor_moved()')
   api.nvim_command('au CursorMovedI <buffer> lua require("luapad").close_preview()')
   api.nvim_command('au QuitPre <buffer> set nomodified')
 
@@ -171,5 +184,7 @@ return {
   init_luapad = init_luapad,
   luapad = luapad,
   preview = preview,
-  close_preview = close_preview
+  config = Config.config,
+  close_preview = close_preview,
+  on_cursor_moved = on_cursor_moved
 }
