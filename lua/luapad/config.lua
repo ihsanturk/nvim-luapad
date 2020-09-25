@@ -3,7 +3,8 @@ local Config = {
   bool_values = {
     preview = true,
     error_indicator = true,
-    eval_on_move = true
+    eval_on_move = true,
+    eval_on_change = true
   },
   default = {
     preview = true,
@@ -11,7 +12,8 @@ local Config = {
     count_limit = 2 * 1e5,
     print_highlight = 'Comment',
     error_highlight = 'ErrorMsg',
-    eval_on_move = false
+    eval_on_move = false,
+    eval_on_change = true
   },
   meta = {}
 }

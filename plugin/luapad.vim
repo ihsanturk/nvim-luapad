@@ -6,7 +6,7 @@ if exists('g:luapad_loaded') | finish | endif
 let s:save_cpo = &cpo
 set cpo&vim
 
-command! Luapad lua require'luapad'.init_luapad()
+command! Luapad lua require'luapad'.init()
 command! LuaRun lua require'luapad/run'()
 
 function! Luapd_lua_complete (ArgLead, CmdLine, CursorPos) abort
