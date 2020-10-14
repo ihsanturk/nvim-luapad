@@ -82,11 +82,10 @@ function luapad_print(...)
 end
 
 function M.eval()
-  local context = {
-    p = luapad_print,
-    print = luapad_print,
-    luapad = helper.new(M.start_buf)
-  }
+  local context = Config.context or {}
+  context.p = luapad_print;
+  context.print = luapad_print;
+  context.luapad = helper.new(M.start_buf)
   setmetatable(context, { __index = _G})
 
   Statusline:clear()

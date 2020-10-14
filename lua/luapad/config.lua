@@ -1,5 +1,9 @@
 local Config = {
   prefix = 'luapad_',
+  only_lua = {
+    on_init = true,
+    context = true
+  },
   bool_values = {
     preview = true,
     error_indicator = true,
@@ -15,13 +19,12 @@ local Config = {
     eval_on_move = false,
     eval_on_change = true
   },
+  lua_vault = {},
   meta = {}
 }
 
 local function get_var(key)
-  s, v = pcall(function()
-    return vim.api.nvim_get_var(key)
-  end)
+  s, v = pcall(vim.api.nvim_get_var, key)
   if s then return v end
 end
 
@@ -34,6 +37,8 @@ end
 
 
 Config.meta.__index = function(self, key)
+  if Config.only_lua[key] then return Config.lua_vault[key] end
+
   local vim_key = self.prefix .. key
 
   if self.bool_values[key] then
@@ -46,12 +51,16 @@ Config.meta.__index = function(self, key)
 end
 
 Config.meta.__newindex = function(self, key, value)
+  if Config.only_lua[key] then
+    Config.lua_vault[key] = value
+    return
+  end
   set_var(key, value)
 end
 
 Config.config = function(tbl)
   for k, v in pairs(tbl) do
-    set_var(k, v)
+    Config[k] = v
   end
 end
 

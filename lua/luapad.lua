@@ -51,6 +51,8 @@ local function init()
       on_changedtick = on_change,
       on_detach = on_detach
     })
+
+  if Config.on_init then Config.on_init() end
 end
 
 return {
