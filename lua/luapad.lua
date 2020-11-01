@@ -1,10 +1,11 @@
 local Config = require'luapad/config'
 local Evaluator = require'luapad/evaluator'
+local Statusline = require 'luapad/statusline'
+local get_root_path = require 'luapad/tools'.get_root_path
 
 local preview = Evaluator.preview
 local close_preview = Evaluator.close_preview
 local eval = vim.schedule_wrap(Evaluator.eval)
-
 
 local function on_cursor_hold()
   if Config.preview then preview() end
@@ -30,11 +31,14 @@ local function init()
   Evaluator.start_buf = vim.api.nvim_get_current_buf()
 
   vim.api.nvim_command('botright vnew')
+  vim.api.nvim_command('silent w! ' .. get_root_path() .. 'tmp/Luapad.lua')
+  vim.api.nvim_command('silent e ' .. get_root_path() .. 'tmp/Luapad.lua')
   Evaluator.current_buf = vim.api.nvim_get_current_buf()
+  Statusline.current_buf = vim.api.nvim_get_current_buf()
 
-  vim.api.nvim_buf_set_name(0, 'Luapad #' .. vim.api.nvim_get_current_buf())
+  -- vim.api.nvim_buf_set_name(0, 'Luapad #' .. vim.api.nvim_get_current_buf())
   vim.api.nvim_buf_set_option(0, 'swapfile', false)
-  vim.api.nvim_buf_set_option(0, 'filetype', 'lua.luapad')
+  vim.api.nvim_buf_set_option(0, 'filetype', 'lua')
   vim.api.nvim_buf_set_option(0, 'bufhidden', 'wipe')
 
   vim.api.nvim_command('augroup LuapadAutogroup')

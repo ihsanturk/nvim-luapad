@@ -17,7 +17,7 @@ function Statusline:set_status(v)
 end
 
 function Statusline:lightline_status()
-  if not vim.api.nvim_buf_get_option(0, 'filetype'):match('luapad') then
+  if vim.api.nvim_get_current_buf() ~= self.current_buf then
     return ''
   end
 
@@ -30,9 +30,10 @@ function Statusline:lightline_status()
 end
 
 function Statusline:lightline_msg()
-  if not vim.api.nvim_buf_get_option(0, 'filetype'):match('luapad') then
+  if vim.api.nvim_get_current_buf() ~= self.current_buf then
     return ''
   end
+
   return self.msg or ''
 end
 
