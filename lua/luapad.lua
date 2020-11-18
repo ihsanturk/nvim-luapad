@@ -1,7 +1,11 @@
 local Config = require'luapad/config'
 local Evaluator = require'luapad/evaluator'
 local Statusline = require 'luapad/statusline'
-local get_root_path = require 'luapad/tools'.get_root_path
+local path = require 'luapad/tools'.path
+local create_file = require 'luapad/tools'.create_file
+local remove_file = require 'luapad/tools'.remove_file
+
+local GCounter = 0
 
 local preview = Evaluator.preview
 local close_preview = Evaluator.close_preview
@@ -30,9 +34,12 @@ end
 local function init()
   Evaluator.start_buf = vim.api.nvim_get_current_buf()
 
-  vim.api.nvim_command('botright vnew')
-  vim.api.nvim_command('silent w! ' .. get_root_path() .. 'tmp/Luapad.lua')
-  vim.api.nvim_command('silent e ' .. get_root_path() .. 'tmp/Luapad.lua')
+  GCounter = GCounter + 1
+  local file_path = path('tmp', 'Luapad_' .. GCounter .. '.lua')
+
+  create_file(file_path)
+  vim.api.nvim_command('botright vsplit ' .. file_path)
+
   Evaluator.current_buf = vim.api.nvim_get_current_buf()
   Statusline.current_buf = vim.api.nvim_get_current_buf()
 
@@ -51,10 +58,13 @@ local function init()
   vim.api.nvim_command('augroup END')
 
   vim.api.nvim_buf_attach(0, false, {
-      on_lines = on_change,
-      on_changedtick = on_change,
-      on_detach = on_detach
-    })
+    on_lines = on_change,
+    on_changedtick = on_change,
+    on_detach = function()
+      on_detach()
+      remove_file(file_path)
+    end
+  })
 
   if Config.on_init then Config.on_init() end
 end
