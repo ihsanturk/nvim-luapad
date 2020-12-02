@@ -1,10 +1,12 @@
 local Config = require'luapad/config'
 local Evaluator = require'luapad/evaluator'
 local Statusline = require 'luapad/statusline'
+local State = require 'luapad/state'
 local path = require 'luapad/tools'.path
 local create_file = require 'luapad/tools'.create_file
 local remove_file = require 'luapad/tools'.remove_file
 
+local luapad_current_win
 local GCounter = 0
 
 local preview = Evaluator.preview
@@ -32,12 +34,12 @@ local function on_detach()
 end
 
 local function init()
-  if Evaluator.current_win and vim.api.nvim_win_is_valid(Evaluator.current_win) then
-    vim.api.nvim_set_current_win(Evaluator.current_win)
+  if luapad_current_win and vim.api.nvim_win_is_valid(luapad_current_win) then
+    vim.api.nvim_set_current_win(luapad_current_win)
     return
   end
 
-  Evaluator.start_buf = vim.api.nvim_get_current_buf()
+  local start_buf = vim.api.nvim_get_current_buf()
 
   GCounter = GCounter + 1
   local file_path = path('tmp', 'Luapad_' .. GCounter .. '.lua')
@@ -47,31 +49,22 @@ local function init()
   vim.api.nvim_command('botright vsplit ' .. file_path)
   remove_file(file_path)
 
-  Evaluator.current_win = vim.api.nvim_get_current_win()
-  Evaluator.current_buf = vim.api.nvim_get_current_buf()
+  local buf = vim.api.nvim_get_current_buf()
+
+  State.instances[buf] = Evaluator:new{buf = buf}
+  State.instances[buf]:start()
+
   Statusline.current_buf = vim.api.nvim_get_current_buf()
 
-  -- vim.api.nvim_buf_set_name(0, 'Luapad #' .. vim.api.nvim_get_current_buf())
-  vim.api.nvim_buf_set_option(0, 'swapfile', false)
-  vim.api.nvim_buf_set_option(0, 'filetype', 'lua')
-  vim.api.nvim_buf_set_option(0, 'bufhidden', 'wipe')
+  vim.api.nvim_buf_set_option(buf, 'swapfile', false)
+  vim.api.nvim_buf_set_option(buf, 'filetype', 'lua')
+  vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
 
   vim.api.nvim_command('augroup LuapadAutogroup')
   vim.api.nvim_command('autocmd!')
-  vim.api.nvim_command('au CursorHold <buffer> lua require("luapad").on_cursor_hold()')
-  vim.api.nvim_command('au CursorMoved <buffer> lua require("luapad").on_luapad_cursor_moved()')
-  vim.api.nvim_command('au CursorMovedI <buffer> lua require("luapad").on_luapad_cursor_moved()')
-  vim.api.nvim_command('au CursorMoved * lua require("luapad").on_cursor_moved()')
-  vim.api.nvim_command('au QuitPre <buffer> set nomodified')
+  vim.api.nvim_command('au CursorMoved * lua require("luapad/cmds").on_cursor_moved()')
   vim.api.nvim_command('augroup END')
-
-  vim.api.nvim_buf_attach(0, false, {
-    on_lines = on_change,
-    on_changedtick = on_change,
-    on_detach = on_detach
-  })
-
-  if Config.on_init then Config.on_init() end
+  vim.api.nvim_command('au QuitPre <buffer> set nomodified')
 end
 
 return {

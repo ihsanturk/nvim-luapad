@@ -1,33 +1,46 @@
 local Statusline = require 'luapad/statusline'
 local Config = require'luapad/config'
-local helper = require'luapad/helper'
+local State = require 'luapad/state'
+-- local helper = require'luapad/helper'
 
 local parse_error = require'luapad/tools'.parse_error
 
 local ns = vim.api.nvim_create_namespace('luapad_namespace')
 
-local M = {
-  start_buf = nil,
-  current_buf = nil,
-  preview_win = nil,
-  current_win = nil,
-  output = {}
-}
+Evaluator = {}
+Evaluator.__index = Evaluator
 
-local function set_virtual_text(line, str, color)
-  if not M.current_buf then return end
-  if not vim.api.nvim_buf_is_valid(M.current_buf) then return end
+local function single_line(arr)
+  local result = {}
+  for _, v in ipairs(arr) do
+    local str = v:gsub("\n", ''):gsub(' +', ' ')
+    table.insert(result, str)
+  end
+  return table.concat(result, ', ')
+end
 
+function Evaluator:set_virtual_text(line, str, color)
   vim.api.nvim_buf_set_virtual_text(
-    M.current_buf,
+    self.buf,
     ns,
     line,
     {{tostring(str), color}},
     {}
-    )
+  )
 end
 
-local function tcall(fun)
+function Evaluator:update_view()
+  if not self.buf then return end
+  if not vim.api.nvim_buf_is_valid(self.buf) then return end
+
+  for line, arr in pairs(self.output) do
+    local res = {}
+    for _, v in ipairs(arr) do table.insert(res, single_line(v)) end
+    self:set_virtual_text(line - 1, '  '..table.concat(res, ' | '), Config.print_highlight)
+  end
+end
+
+function Evaluator:tcall(fun)
   local count_limit = Config.count_limit < 1000 and 1000 or Config.count_limit
 
   success, result = pcall(function()
@@ -45,7 +58,7 @@ local function tcall(fun)
       Statusline:set_msg(('%s: %s'):format((line or ''), (error_msg or '')))
 
       if Config.error_indicator and line then
-        set_virtual_text(tonumber(line) - 1, '<-- '..error_msg, Config.error_highlight)
+        self:set_virtual_text(tonumber(line) - 1, '<-- '..error_msg, Config.error_highlight)
       end
     end
   end
@@ -53,49 +66,40 @@ local function tcall(fun)
   debug.sethook()
 end
 
-local function single_line(arr)
-  local result = {}
-  for _, v in ipairs(arr) do
-    local str = v:gsub("\n", ''):gsub(' +', ' ')
-    table.insert(result, str)
-  end
-  return table.concat(result, ', ')
-end
-
-function luapad_print(...)
+function Evaluator:print(...)
   if not ... then return end
-  local arg = {...}
   local str = {}
 
-  for _,v in ipairs(arg) do
+  for _,v in ipairs({...}) do
     table.insert(str, tostring(vim.inspect(v)))
   end
 
-  local line = debug.traceback('', 2):match(':(%d*):')
+  local line = debug.traceback('', 3):match(':(%d*):')
   if not line then return end
   line = tonumber(line)
 
-  if not M.output[line] then
-    M.output[line] = {}
-  end
-
-  table.insert(M.output[line], str)
+  if not self.output[line] then self.output[line] = {} end
+  table.insert(self.output[line], str)
 end
 
-function M.eval()
-  local context = Config.context or {}
+function Evaluator:eval()
+  local context = vim.deepcopy(Config.context) or {}
+  local luapad_print = function(...) self:print(...) end
+
   context.p = luapad_print;
   context.print = luapad_print;
-  context.luapad = helper.new(M.start_buf)
+
+  -- context.luapad = helper.new(M.start_buf)
+
   setmetatable(context, { __index = _G})
 
   Statusline:clear()
 
-  vim.api.nvim_buf_clear_namespace(M.current_buf, ns, 0, -1)
+  vim.api.nvim_buf_clear_namespace(self.buf, ns, 0, -1)
 
-  M.output = {}
+  self.output = {}
 
-  local code = vim.api.nvim_buf_get_lines(M.current_buf, 0, -1, {})
+  local code = vim.api.nvim_buf_get_lines(self.buf, 0, -1, {})
   local f, result = loadstring(table.concat(code, '\n'))
 
   if not f then
@@ -106,37 +110,28 @@ function M.eval()
   end
 
   setfenv(f, context)
-  tcall(f)
-
-  for line, arr in pairs(M.output) do
-    local res = {}
-
-    for _, v in ipairs(arr) do
-      table.insert(res, single_line(v))
-    end
-
-    set_virtual_text(line - 1, '  '..table.concat(res, ' | '), Config.print_highlight)
-  end
+  self:tcall(f)
+  self:update_view()
 end
 
-function M.close_preview()
+function Evaluator:close_preview()
   vim.schedule(function()
-    if M.preview_win and vim.api.nvim_win_is_valid(M.preview_win) then
-      vim.api.nvim_win_close(M.preview_win, false)
+    if self.preview_win and vim.api.nvim_win_is_valid(self.preview_win) then
+      vim.api.nvim_win_close(self.preview_win, false)
     end
   end)
 end
 
-function M.preview()
+function Evaluator:preview()
   local line = vim.api.nvim_win_get_cursor(0)[1]
 
-  if not M.output[line] then return end
+  if not self.output[line] then return end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
   vim.api.nvim_buf_set_option(buf, 'filetype', 'lua')
 
-  local content = vim.split(table.concat(vim.tbl_flatten(M.output[line]), "\n"), "\n")
+  local content = vim.split(table.concat(vim.tbl_flatten(self.output[line]), "\n"), "\n")
 
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, content)
 
@@ -144,12 +139,12 @@ function M.preview()
   local cols = tonumber(vim.api.nvim_win_get_width(0))
   if vim.api.nvim_call_function('screenrow', {}) >= lines then lines = 0 end
 
-  if M.preview_win and vim.api.nvim_win_is_valid(M.preview_win) then
-    vim.api.nvim_win_set_buf(M.preview_win, buf)
+  if self.preview_win and vim.api.nvim_win_is_valid(self.preview_win) then
+    vim.api.nvim_win_set_buf(self.preview_win, buf)
     return
   end
 
-  M.preview_win = vim.api.nvim_open_win(buf, false, {
+  self.preview_win = vim.api.nvim_open_win(buf, false, {
       relative = 'win',
       col = 0,
       row = lines,
@@ -157,7 +152,36 @@ function M.preview()
       width = cols - 1,
       style = 'minimal'
     })
-  vim.api.nvim_win_set_option(M.preview_win, 'signcolumn', 'no')
+  vim.api.nvim_win_set_option(self.preview_win, 'signcolumn', 'no')
 end
 
-return M
+function Evaluator:new(opts)
+  opts = opts or {}
+  opts.output = {}
+  return setmetatable(opts, Evaluator)
+end
+
+function Evaluator:start()
+  local on_change = vim.schedule_wrap(function()
+    if Config.eval_on_change then self:eval() end
+  end)
+
+  local on_detach = vim.schedule_wrap(function()
+    self:close_preview()
+    State.instances[self.buf] = nil
+  end)
+
+  vim.api.nvim_buf_attach(0, false, {
+    on_lines = on_change,
+    on_changedtick = on_change,
+    on_detach = on_detach
+  })
+
+  vim.api.nvim_command(([[au CursorHold <buffer> lua require("luapad/cmds").on_cursor_hold(%s)]]):format(self.buf))
+  vim.api.nvim_command(([[au CursorMoved <buffer> lua require("luapad/cmds").on_luapad_cursor_moved(%s)]]):format(self.buf))
+  vim.api.nvim_command(([[au CursorMovedI <buffer> lua require("luapad/cmds").on_luapad_cursor_moved(%s)]]):format(self.buf))
+
+  if Config.on_init then Config.on_init() end
+end
+
+return Evaluator

@@ -1,5 +1,5 @@
 State = {
-  instance = {}
+  instances = {}
 }
 
 return State
