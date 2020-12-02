@@ -10,6 +10,7 @@ local M = {
   start_buf = nil,
   current_buf = nil,
   preview_win = nil,
+  current_win = nil,
   output = {}
 }
 

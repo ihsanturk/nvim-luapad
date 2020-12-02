@@ -32,14 +32,22 @@ local function on_detach()
 end
 
 local function init()
+  if Evaluator.current_win and vim.api.nvim_win_is_valid(Evaluator.current_win) then
+    vim.api.nvim_set_current_win(Evaluator.current_win)
+    return
+  end
+
   Evaluator.start_buf = vim.api.nvim_get_current_buf()
 
   GCounter = GCounter + 1
   local file_path = path('tmp', 'Luapad_' .. GCounter .. '.lua')
 
+  -- hacky solution to deal with native lsp
   create_file(file_path)
   vim.api.nvim_command('botright vsplit ' .. file_path)
+  remove_file(file_path)
 
+  Evaluator.current_win = vim.api.nvim_get_current_win()
   Evaluator.current_buf = vim.api.nvim_get_current_buf()
   Statusline.current_buf = vim.api.nvim_get_current_buf()
 
@@ -60,10 +68,7 @@ local function init()
   vim.api.nvim_buf_attach(0, false, {
     on_lines = on_change,
     on_changedtick = on_change,
-    on_detach = function()
-      on_detach()
-      remove_file(file_path)
-    end
+    on_detach = on_detach
   })
 
   if Config.on_init then Config.on_init() end
