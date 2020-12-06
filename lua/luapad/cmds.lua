@@ -11,7 +11,7 @@ end
 
 local function on_cursor_moved()
   if Config.eval_on_move then
-    for _, v in ipairs(State.instances) do v:eval() end
+    for _, v in pairs(State.instances) do v:eval() end
   end
 end
 

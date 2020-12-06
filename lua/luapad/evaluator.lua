@@ -1,7 +1,6 @@
 local Statusline = require 'luapad/statusline'
 local Config = require'luapad/config'
 local State = require 'luapad/state'
--- local helper = require'luapad/helper'
 
 local parse_error = require'luapad/tools'.parse_error
 
@@ -83,13 +82,13 @@ function Evaluator:print(...)
 end
 
 function Evaluator:eval()
-  local context = vim.deepcopy(Config.context) or {}
+  local context = self.context or vim.deepcopy(Config.context) or {}
   local luapad_print = function(...) self:print(...) end
 
-  context.p = luapad_print;
-  context.print = luapad_print;
-
-  -- context.luapad = helper.new(M.start_buf)
+  context.luapad = self
+  context.p = luapad_print
+  context.print = luapad_print
+  context.luapad = self.helper
 
   setmetatable(context, { __index = _G})
 
@@ -155,14 +154,25 @@ function Evaluator:preview()
   vim.api.nvim_win_set_option(self.preview_win, 'signcolumn', 'no')
 end
 
-function Evaluator:new(opts)
-  opts = opts or {}
-  opts.output = {}
-  return setmetatable(opts, Evaluator)
+function Evaluator:new(attrs)
+  attrs = attrs or {}
+  assert(attrs.buf, 'You need to set buf for luapad')
+
+  attrs.active = true
+  attrs.output = {}
+  attrs.helper = {
+    buf = attrs.buf,
+    config = Config.config
+  }
+
+  local obj = setmetatable(attrs, Evaluator)
+  State.instances[attrs.buf] = obj
+  return obj
 end
 
 function Evaluator:start()
   local on_change = vim.schedule_wrap(function()
+    if not self.active then return true end
     if Config.eval_on_change then self:eval() end
   end)
 
@@ -177,11 +187,33 @@ function Evaluator:start()
     on_detach = on_detach
   })
 
+  vim.api.nvim_command('augroup LuapadAutogroup')
+  vim.api.nvim_command('autocmd!')
+  vim.api.nvim_command('au CursorMoved * lua require("luapad/cmds").on_cursor_moved()')
+  vim.api.nvim_command('augroup END')
+  vim.api.nvim_command(('augroup LuapadAutogroupNr%s'):format(self.buf))
+  vim.api.nvim_command('autocmd!')
   vim.api.nvim_command(([[au CursorHold <buffer> lua require("luapad/cmds").on_cursor_hold(%s)]]):format(self.buf))
   vim.api.nvim_command(([[au CursorMoved <buffer> lua require("luapad/cmds").on_luapad_cursor_moved(%s)]]):format(self.buf))
   vim.api.nvim_command(([[au CursorMovedI <buffer> lua require("luapad/cmds").on_luapad_cursor_moved(%s)]]):format(self.buf))
+  vim.api.nvim_command('augroup END')
 
   if Config.on_init then Config.on_init() end
+  self:eval()
 end
+
+function Evaluator:finish()
+  self.active = false
+  vim.api.nvim_command(('augroup LuapadAutogroupNr%s'):format(self.buf))
+  vim.api.nvim_command('autocmd!')
+  vim.api.nvim_command('augroup END')
+  State.instances[self.buf] = nil
+
+  if vim.api.nvim_buf_is_valid(self.buf) then
+    vim.api.nvim_buf_clear_namespace(self.buf, ns, 0, -1)
+  end
+  self:close_preview()
+end
+
 
 return Evaluator
