@@ -1,5 +1,5 @@
-local function run_lua(opts)
-  local context = opts['context'] or {}
+local function run(opts)
+  local context = opts or {}
   setmetatable(context, { __index = _G})
   local code = vim.api.nvim_buf_get_lines(0, 0, -1, {})
   local f = loadstring(table.concat(code, '\n'))
@@ -9,4 +9,4 @@ local function run_lua(opts)
   if not success then print(result) end
 end
 
-return run_lua
+return run
