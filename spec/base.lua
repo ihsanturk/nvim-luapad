@@ -31,7 +31,7 @@ wow(1, 2, 3, 'aaa')
   local received_virtual_text = t.get_virtual_text(1)[1]
 
   t.assert_str_contains(received_virtual_text, expected_virtual_text)
-  t.assert_equals(t.nvim('get_var', 'luapad_status'), 'ok')
+  t.assert_equals(t.exec_lua('return require"luapad/statusline".status()'), 'ok')
 end
 
 function test_base.test_error_msg()
@@ -40,9 +40,9 @@ function test_base.test_error_msg()
   local virtual_txt = t.get_virtual_text(0)
 
   t.assert_str_contains(virtual_txt[1], "attempt to concatenate a nil value")
-  t.assert_str_contains(t.nvim('get_var', 'luapad_msg'), 'attempt to concatenate a nil value')
+  t.assert_str_contains(t.exec_lua('return require"luapad/statusline".msg()'), 'attempt to concatenate a nil value')
 
-  t.assert_equals(t.nvim('get_var', 'luapad_status'), 'error')
+  t.assert_equals(t.exec_lua('return require"luapad/statusline".status()'), 'error')
   t.assert_equals(virtual_txt[2], "ErrorMsg")
 end
 

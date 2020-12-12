@@ -1,10 +1,4 @@
--- local Config = require'luapad/config'
-
 local function parse_error(str)
-  -- if Config.debug then
-  --   local internal = str:match('nvim%-luapad.*:%d+:.*')
-  --   if internal then return internal end
-  -- end
   return str:match("%[string.*%]:(%d*): (.*)")
 end
 

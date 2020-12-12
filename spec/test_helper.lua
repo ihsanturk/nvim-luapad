@@ -69,8 +69,8 @@ function TestHelper.typein(str)
   end
 end
 
-function TestHelper.exec_lua(str)
-  TestHelper.nvim('exec_lua', str)
+function TestHelper.exec_lua(str, args)
+  return TestHelper.nvim('exec_lua', str, args or {})
 end
 
 function TestHelper.exec(str)

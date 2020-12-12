@@ -5,11 +5,7 @@ local function vprint(str, color)
   line = tonumber(line) - 1
 
   vim.api.nvim_buf_set_virtual_text(
-  0,
-  0,
-  line,
-  {{tostring(str), color or 'Comment'}},
-  {}
+    0, 0, line, {{tostring(str), color or 'Comment'}}, {}
   )
 end
 

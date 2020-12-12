@@ -10,5 +10,5 @@ end
 ]])
 
   t.assert_str_contains(t.get_virtual_text(1)[1], 'wow')
-  t.assert_equals(t.nvim('get_var', 'luapad_status'), 'timeout')
+  t.assert_equals(t.exec_lua('return require "luapad/statusline".status()'), 'timeout')
 end

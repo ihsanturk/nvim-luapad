@@ -1,6 +1,5 @@
 local Config = require'luapad/config'
 local Evaluator = require'luapad/evaluator'
-local Statusline = require 'luapad/statusline'
 local State = require 'luapad/state'
 local path = require 'luapad/tools'.path
 local create_file = require 'luapad/tools'.create_file
@@ -20,8 +19,6 @@ local function init()
   local buf = vim.api.nvim_get_current_buf()
 
   Evaluator:new{buf = buf}:start()
-
-  Statusline.current_buf = vim.api.nvim_get_current_buf()
 
   vim.api.nvim_buf_set_option(buf, 'swapfile', false)
   vim.api.nvim_buf_set_option(buf, 'filetype', 'lua')

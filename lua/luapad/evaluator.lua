@@ -1,5 +1,4 @@
-local Statusline = require 'luapad/statusline'
-local Config = require'luapad/config'
+local Config = require 'luapad/config'
 local State = require 'luapad/state'
 
 local parse_error = require'luapad/tools'.parse_error
@@ -49,12 +48,12 @@ function Evaluator:tcall(fun)
 
   if not success then
     if result:find('LuapadTimeoutError') then
-      Statusline:set_status('timeout')
+      self.statusline.status = 'timeout'
     else
       print(result)
-      Statusline:set_status('error')
+      self.statusline.status = 'error'
       local line, error_msg = parse_error(result)
-      Statusline:set_msg(('%s: %s'):format((line or ''), (error_msg or '')))
+      self.statusline.msg = ('%s: %s'):format((line or ''), (error_msg or ''))
 
       if Config.error_indicator and line then
         self:set_virtual_text(tonumber(line) - 1, '<-- '..error_msg, Config.error_highlight)
@@ -92,7 +91,7 @@ function Evaluator:eval()
 
   setmetatable(context, { __index = _G})
 
-  Statusline:clear()
+  self.statusline = { status = 'ok' }
 
   vim.api.nvim_buf_clear_namespace(self.buf, ns, 0, -1)
 
@@ -103,8 +102,8 @@ function Evaluator:eval()
 
   if not f then
     local _, msg = parse_error(result)
-    Statusline:set_status('syntax')
-    Statusline:set_msg(msg)
+    self.statusline.status = 'syntax'
+    self.statusline.msg = msg
     return
   end
 
@@ -158,6 +157,7 @@ function Evaluator:new(attrs)
   attrs = attrs or {}
   assert(attrs.buf, 'You need to set buf for luapad')
 
+  attrs.statusline = { status = 'ok' }
   attrs.active = true
   attrs.output = {}
   attrs.helper = {
@@ -214,6 +214,5 @@ function Evaluator:finish()
   end
   self:close_preview()
 end
-
 
 return Evaluator
